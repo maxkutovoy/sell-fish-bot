@@ -6,16 +6,21 @@ from environs import Env
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 
+from moltin import get_all_products
+
+
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 def start(update, context):
-    keyboard = [[InlineKeyboardButton("Option 1", callback_data='1'),
-                 InlineKeyboardButton("Option 2", callback_data='2')],
+    moltin_token = context.bot_data['moltin_token']
+    all_products = get_all_products(moltin_token)
 
-                [InlineKeyboardButton("Option 3", callback_data='3')]]
+    keyboard = [
+        [InlineKeyboardButton(product['name'], callback_data=product['id'])] for product in all_products['data']
+    ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -52,11 +57,14 @@ def main():
     env = Env()
     env.read_env()
     updater = Updater(env.str('TG_TOKEN'))
+    dispatcher = updater.dispatcher
 
-    updater.dispatcher.add_handler(CommandHandler('start', start))
-    updater.dispatcher.add_handler(CallbackQueryHandler(button))
-    updater.dispatcher.add_handler(CommandHandler('help', help))
-    updater.dispatcher.add_error_handler(error)
+    dispatcher.bot_data['moltin_token'] = env.str('MOLTIN_TOKEN')
+
+    dispatcher.add_handler(CommandHandler('start', start))
+    dispatcher.add_handler(CallbackQueryHandler(button))
+    dispatcher.add_handler(CommandHandler('help', help))
+    dispatcher.add_error_handler(error)
 
     # Start the Bot
     updater.start_polling()

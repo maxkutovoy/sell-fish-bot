@@ -24,6 +24,7 @@ def get_all_products(moltin_token):
     }
 
     response = requests.get('https://api.moltin.com/v2/products', headers=headers)
+    pprint(response.json())
     return response.json()
 
 
@@ -112,7 +113,7 @@ if __name__ == '__main__':
     moltin_client_secret = env.str('MOLTIN_CLIENT_SECRET')
     # get_moltin_token(moltin_client_id, moltin_client_secret)
     # add_new_product(moltin_token)
-    # get_all_products(moltin_token)
+    get_all_products(moltin_token)
     # add_product_to_cart(moltin_token)
-    get_users_cart(moltin_token)
+    # get_users_cart(moltin_token)
     # clean_up_the_cart(moltin_token)
