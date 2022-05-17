@@ -1,21 +1,44 @@
 #!/usr/bin/env python
 
 import logging
+from pprint import pprint
 
+import redis
 from environs import Env
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
+from telegram.ext import Filters, Updater, CommandHandler, CallbackQueryHandler, ConversationHandler
 
-from moltin import get_all_products
+from moltin import get_all_products, get_product_info, get_moltin_token, get_file
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+                    level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
 def start(update, context):
     moltin_token = context.bot_data['moltin_token']
+    all_products = get_all_products(moltin_token)
+    chat_id = update.message.chat.id,
+    message_id = update.message.message_id
+    context.bot_data[chat_id] = 'main_menu'
+
+    keyboard = [
+        [InlineKeyboardButton(product['name'], callback_data=product['id'])] for product in all_products['data']
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text('Выбери рыбу', reply_markup=reply_markup)
+
+    return 'main_menu'
+
+
+def main_menu(update, context):
+    moltin_token = context.bot_data['moltin_token']
+    query = update.callback_query
+    chat_id = query.message.chat_id,
+
+    context.bot_data[chat_id] = 'main_menu'
     all_products = get_all_products(moltin_token)
 
     keyboard = [
@@ -23,29 +46,69 @@ def start(update, context):
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
+    # update.message.reply_text('Выбери рыбу:', reply_markup=reply_markup)
+    context.bot.send_message(
+        text='Выбери продукт:',
+        chat_id=query.message.chat_id,
+        reply_markup=reply_markup
+    )
+    # context.bot.editMessageText(
+    #     text='Выбери рыбу',
+    #     chat_id=query.message.chat_id,
+    #     message_id=query.message.message_id,
+    #     reply_markup=reply_markup
+    # )
+    db.set(f'{query.message.chat_id}', 'main_menu')
+    return 'main_menu'
 
-    update.message.reply_text('Please choose:', reply_markup=reply_markup)
 
-
-def button(update, context):
+def about_product(update, context):
     query = update.callback_query
-    keyboard = [[InlineKeyboardButton("Option 1", callback_data='1'),
-                 InlineKeyboardButton("Option 2", callback_data='2')],
+    query_data = query.data
 
-                [InlineKeyboardButton("Option 3", callback_data='3')]]
-
+    moltin_token = context.bot_data['moltin_token']
+    keyboard = [[InlineKeyboardButton("К продуктам", callback_data='main_menu')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    context.bot.editMessageText(
-        text="Selected option: {}".format(query.data),
-        chat_id=query.message.chat_id,
-        message_id=query.message.message_id,
-        reply_markup = reply_markup
+    product_info = get_product_info(moltin_token, query_data)
+    pprint(product_info)
+    answer = (
+        f"Название: {product_info['data']['name']}\n\n"
+        f"Описание: {product_info['data']['description']}\n\n"
+        f"Цена: {product_info['data']['meta']['display_price']['with_tax']['formatted']}"
     )
+    file_id = product_info['data']['relationships']['main_image']['data']['id']
+    filename = get_file(moltin_token, file_id)
+
+    context.bot.send_photo(
+        chat_id=query.message.chat_id,
+        photo=open(filename, 'rb'),
+        caption=answer,
+        reply_markup=reply_markup
+    )
+    context.bot.delete_message(
+        chat_id=query.message.chat_id,
+        message_id=query.message.message_id
+    )
+
+    # update.message.reply_text(answer, reply_markup=reply_markup)
+    # context.bot.editMessageText(
+    #     text=answer,
+    #     chat_id=query.message.chat_id,
+    #     message_id=query.message.message_id,
+    #     reply_markup=reply_markup
+    # )
+    # print(query.message.chat_id)
+    db.set(f'{query.message.chat_id}', 'about_product')
+    return 'main_menu'
 
 
 def help(update, context):
     update.message.reply_text("Use /start to test this bot.")
+
+
+def cancel(update, context):
+    return ConversationHandler.END
 
 
 def error(update, context):
@@ -53,26 +116,51 @@ def error(update, context):
     logger.warning('Update "%s" caused error "%s"', update, error)
 
 
-def main():
-    env = Env()
-    env.read_env()
-    updater = Updater(env.str('TG_TOKEN'))
+def start_tg_bot(tg_token, moltin_client_id, moltin_client_secret):
+    updater = Updater(tg_token)
     dispatcher = updater.dispatcher
+    dispatcher.bot_data['moltin_token'] = get_moltin_token(moltin_client_id, moltin_client_secret)
 
-    dispatcher.bot_data['moltin_token'] = env.str('MOLTIN_TOKEN')
+    # dispatcher.add_handler(CommandHandler('start', start))
+    # dispatcher.add_handler(CallbackQueryHandler(callback_menu))
+    # dispatcher.add_handler(CommandHandler('help', help))
+    # dispatcher.add_error_handler(error)
 
-    dispatcher.add_handler(CommandHandler('start', start))
-    dispatcher.add_handler(CallbackQueryHandler(button))
-    dispatcher.add_handler(CommandHandler('help', help))
-    dispatcher.add_error_handler(error)
+    conversation = ConversationHandler(
+        entry_points=[CommandHandler('start', start)],
+        states={
+            'main_menu': [
+                CallbackQueryHandler(main_menu, pattern='main_menu'),
+                CallbackQueryHandler(about_product)
+            ],
+        },
+        fallbacks=[
+            CommandHandler('cancel', cancel)],
+    )
 
-    # Start the Bot
+    dispatcher.add_handler(conversation)
+
     updater.start_polling()
-
-    # Run the bot until the user presses Ctrl-C or the process receives SIGINT,
-    # SIGTERM or SIGABRT
     updater.idle()
 
 
 if __name__ == '__main__':
-    main()
+    env = Env()
+    env.read_env()
+
+    tg_token = env.str('TG_TOKEN')
+    moltin_client_id = env.str('MOLTIN_CLIENT_ID')
+    moltin_client_secret = env.str('MOLTIN_CLIENT_SECRET')
+
+    redis_host = env.str('REDIS_DB_NAME')
+    redis_port = env.int('REDIS_PORT')
+    redis_pass = env.str('REDIS_PASSWORD')
+
+    db = redis.Redis(
+        host=redis_host,
+        port=redis_port,
+        password=redis_pass,
+        db=0
+    )
+
+    start_tg_bot(tg_token, moltin_client_id, moltin_client_secret)

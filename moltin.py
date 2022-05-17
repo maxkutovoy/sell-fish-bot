@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import os
 import random
 from pprint import pprint
 
@@ -13,9 +13,8 @@ def get_moltin_token(moltin_client_id, client_secret):
         'client_secret': client_secret,
         'grant_type': 'client_credentials',
     }
-
     response = requests.post('https://api.moltin.com/oauth/access_token', data=data)
-    print(response.text)
+    return response.json()['access_token']
 
 
 def get_all_products(moltin_token):
@@ -24,7 +23,15 @@ def get_all_products(moltin_token):
     }
 
     response = requests.get('https://api.moltin.com/v2/products', headers=headers)
-    pprint(response.json())
+    return response.json()
+
+
+def get_product_info(moltin_token, product_id):
+    headers = {
+        'Authorization': f'Bearer {moltin_token}',
+    }
+
+    response = requests.get(f'https://api.moltin.com/v2/products/{product_id}', headers=headers)
     return response.json()
 
 
@@ -100,6 +107,25 @@ def clean_up_the_cart(moltin_token):
     print(response.status_code)
 
 
+def get_file(moltin_token, file_id, media_dir='media'):
+    headers = {
+        'Authorization': f'Bearer {moltin_token}',
+    }
+    response = requests.get(f'https://api.moltin.com/v2/files/{file_id}', headers=headers)
+    response.raise_for_status()
+    file_info = response.json()
+    filename = os.path.join(media_dir, file_info['data']['file_name'])
+    file_url = file_info['data']['link']['href']
+
+    response = requests.get(file_url)
+    response.raise_for_status()
+
+    with open(filename, 'wb') as file:
+        file.write(response.content)
+
+    return filename
+
+
 def main():
     pass
 
@@ -113,7 +139,7 @@ if __name__ == '__main__':
     moltin_client_secret = env.str('MOLTIN_CLIENT_SECRET')
     # get_moltin_token(moltin_client_id, moltin_client_secret)
     # add_new_product(moltin_token)
-    get_all_products(moltin_token)
+    # get_all_products(moltin_token)
     # add_product_to_cart(moltin_token)
     # get_users_cart(moltin_token)
     # clean_up_the_cart(moltin_token)
