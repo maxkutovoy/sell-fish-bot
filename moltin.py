@@ -64,28 +64,21 @@ def add_new_product(moltin_token):
     print(response.status_code)
 
 
-def add_product_to_cart(moltin_token):
-    products = get_all_products(moltin_token)
-    pprint(products)
-    products_ids = [product['id'] for product in products['data']]
-    print(products_ids)
-    random_product = random.choice(products_ids)
-    print(random_product)
-
+def add_product_to_cart(moltin_token, cart_id, product_id, quantity):
     headers = {
         'Authorization': f'Bearer {moltin_token}',
     }
 
     json_data = {
         'data': {
-            'id': 'ca7118ee-3468-4c74-b07f-3ffb7fae694d',
+            'id': product_id,
             'type': 'cart_item',
-            'quantity': 1,
+            'quantity': quantity,
         },
     }
 
-    response = requests.post('https://api.moltin.com/v2/carts/mycart/items', headers=headers, json=json_data)
-    print(response.status_code)
+    response = requests.post(f'https://api.moltin.com/v2/carts/{cart_id}/items', headers=headers, json=json_data)
+    response.raise_for_status()
     pprint(response.json())
 
 
@@ -107,23 +100,25 @@ def clean_up_the_cart(moltin_token):
     print(response.status_code)
 
 
-def get_file(moltin_token, file_id, media_dir='media'):
+def get_file(moltin_token, file_id, media_dir):
     headers = {
         'Authorization': f'Bearer {moltin_token}',
     }
     response = requests.get(f'https://api.moltin.com/v2/files/{file_id}', headers=headers)
     response.raise_for_status()
     file_info = response.json()
-    filename = os.path.join(media_dir, file_info['data']['file_name'])
-    file_url = file_info['data']['link']['href']
+    filename = file_info['data']['file_name']
+    filepath = os.path.join(media_dir, file_info['data']['file_name'])
 
-    response = requests.get(file_url)
-    response.raise_for_status()
+    if filename not in os.listdir(media_dir):
+        file_url = file_info['data']['link']['href']
+        response = requests.get(file_url)
+        response.raise_for_status()
 
-    with open(filename, 'wb') as file:
-        file.write(response.content)
+        with open(filepath, 'wb') as file:
+            file.write(response.content)
 
-    return filename
+    return filepath
 
 
 def main():

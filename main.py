@@ -8,7 +8,7 @@ from environs import Env
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Filters, Updater, CommandHandler, CallbackQueryHandler, ConversationHandler
 
-from moltin import get_all_products, get_product_info, get_moltin_token, get_file
+from moltin import get_all_products, get_product_info, get_moltin_token, get_file, add_product_to_cart
 
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -46,7 +46,7 @@ def main_menu(update, context):
     ]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    # update.message.reply_text('Выбери рыбу:', reply_markup=reply_markup)
+
     context.bot.send_message(
         text='Выбери продукт:',
         chat_id=query.message.chat_id,
@@ -67,18 +67,47 @@ def about_product(update, context):
     query_data = query.data
 
     moltin_token = context.bot_data['moltin_token']
-    keyboard = [[InlineKeyboardButton("К продуктам", callback_data='main_menu')]]
+    keyboard = [
+        [
+            InlineKeyboardButton("1 кг", callback_data='1'),
+            InlineKeyboardButton("5 кг", callback_data='5'),
+            InlineKeyboardButton("10 кг", callback_data='10'),
+        ],
+        [InlineKeyboardButton("К продуктам", callback_data='main_menu')]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    if query_data.isdigit():
+        context.bot.answer_callback_query(update.callback_query.id)
+
+        add_product_to_cart(
+            moltin_token=moltin_token,
+            cart_id=query.message.chat_id,
+            product_id=context.user_data['current_product_id'],
+            quantity=int(query_data)
+        )
+
+        context.bot.send_message(
+            text=f"Товар {context.user_data['current_product_name']} - {query_data} кг - добавлен в корзину.",
+            chat_id=query.message.chat_id,
+        )
+        query_data = context.user_data['current_product_id']
+
     product_info = get_product_info(moltin_token, query_data)
-    pprint(product_info)
+    context.user_data['current_product_id'] = query_data
+    context.user_data['current_product_name'] = product_info['data']['name']
+
+    # pprint(product_info)
     answer = (
         f"Название: {product_info['data']['name']}\n\n"
         f"Описание: {product_info['data']['description']}\n\n"
         f"Цена: {product_info['data']['meta']['display_price']['with_tax']['formatted']}"
     )
-    file_id = product_info['data']['relationships']['main_image']['data']['id']
-    filename = get_file(moltin_token, file_id)
+    image_id = product_info['data']['relationships']['main_image']['data']['id']
+
+    media_dir = 'media'
+
+    filename = get_file(moltin_token, image_id, media_dir)
 
     context.bot.send_photo(
         chat_id=query.message.chat_id,
