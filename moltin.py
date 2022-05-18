@@ -79,24 +79,35 @@ def add_product_to_cart(moltin_token, cart_id, product_id, quantity):
 
     response = requests.post(f'https://api.moltin.com/v2/carts/{cart_id}/items', headers=headers, json=json_data)
     response.raise_for_status()
-    pprint(response.json())
 
 
-def get_users_cart(moltin_token):
+def get_items_in_cart(moltin_token, cart_id='479351324'):
     headers = {
         'Authorization': f'Bearer {moltin_token}',
     }
 
-    response = requests.get('https://api.moltin.com/v2/carts/mycart', headers=headers)
-    pprint(response.json())
+    response = requests.get(f'https://api.moltin.com/v2/carts/{cart_id}/items', headers=headers)
+    response.raise_for_status()
+    return response.json()
 
 
-def clean_up_the_cart(moltin_token):
+def get_cart_price(moltin_token, cart_id='479351324'):
     headers = {
         'Authorization': f'Bearer {moltin_token}',
     }
 
-    response = requests.delete('https://api.moltin.com/v2/carts/mycart', headers=headers)
+    response = requests.get(f'https://api.moltin.com/v2/carts/{cart_id}', headers=headers)
+    response.raise_for_status()
+    print(response.json())
+    return response.json()
+
+
+def clean_up_the_cart(moltin_token, cart_id):
+    headers = {
+        'Authorization': f'Bearer {moltin_token}',
+    }
+
+    response = requests.delete(f'https://api.moltin.com/v2/carts/{cart_id}', headers=headers)
     print(response.status_code)
 
 
@@ -130,8 +141,11 @@ if __name__ == '__main__':
     env.read_env()
 
     moltin_client_id = env.str('MOLTIN_CLIENT_ID')
-    moltin_token = env.str('MOLTIN_TOKEN')
     moltin_client_secret = env.str('MOLTIN_CLIENT_SECRET')
+    moltin_token = get_moltin_token(moltin_client_id, moltin_client_secret)
+
+    # get_items_in_cart(moltin_token)
+    get_cart_price(moltin_token)
     # get_moltin_token(moltin_client_id, moltin_client_secret)
     # add_new_product(moltin_token)
     # get_all_products(moltin_token)

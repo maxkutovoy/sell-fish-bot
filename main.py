@@ -5,14 +5,18 @@ from pprint import pprint
 
 import redis
 from environs import Env
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import Filters, Updater, CommandHandler, CallbackQueryHandler, ConversationHandler
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, \
+    ReplyKeyboardRemove
+from telegram.ext import Filters, Updater, CommandHandler, \
+    CallbackQueryHandler, ConversationHandler
 
-from moltin import get_all_products, get_product_info, get_moltin_token, get_file, add_product_to_cart
+from moltin import (get_all_products, get_product_info, get_moltin_token,
+                    get_file, add_product_to_cart,
+                    get_items_in_cart, get_cart_price)
 
-
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.WARNING)
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
@@ -24,8 +28,10 @@ def start(update, context):
     context.bot_data[chat_id] = 'main_menu'
 
     keyboard = [
-        [InlineKeyboardButton(product['name'], callback_data=product['id'])] for product in all_products['data']
+        [InlineKeyboardButton(product['name'], callback_data=product['id'])]
+        for product in all_products['data']
     ]
+    keyboard.append([InlineKeyboardButton("В корзину", callback_data='cart')])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text('Выбери рыбу', reply_markup=reply_markup)
@@ -42,8 +48,10 @@ def main_menu(update, context):
     all_products = get_all_products(moltin_token)
 
     keyboard = [
-        [InlineKeyboardButton(product['name'], callback_data=product['id'])] for product in all_products['data']
+        [InlineKeyboardButton(product['name'], callback_data=product['id'])]
+        for product in all_products['data']
     ]
+    keyboard.append([InlineKeyboardButton("Корзина", callback_data='cart')])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -65,15 +73,16 @@ def main_menu(update, context):
 def about_product(update, context):
     query = update.callback_query
     query_data = query.data
-
     moltin_token = context.bot_data['moltin_token']
+
     keyboard = [
         [
             InlineKeyboardButton("1 кг", callback_data='1'),
             InlineKeyboardButton("5 кг", callback_data='5'),
             InlineKeyboardButton("10 кг", callback_data='10'),
         ],
-        [InlineKeyboardButton("К продуктам", callback_data='main_menu')]
+        [InlineKeyboardButton("К продуктам", callback_data='main_menu')],
+        [InlineKeyboardButton("Корзина", callback_data='cart')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -103,8 +112,10 @@ def about_product(update, context):
         f"Описание: {product_info['data']['description']}\n\n"
         f"Цена: {product_info['data']['meta']['display_price']['with_tax']['formatted']}"
     )
-    image_id = product_info['data']['relationships']['main_image']['data']['id']
+    image_id = product_info['data']['relationships']['main_image']['data'][
+        'id']
 
+    # TODO проверить существует ли каталог для сохранения файлов
     media_dir = 'media'
 
     filename = get_file(moltin_token, image_id, media_dir)
@@ -132,6 +143,39 @@ def about_product(update, context):
     return 'main_menu'
 
 
+def cart(update, context):
+    query = update.callback_query
+    chat_id = query.message.chat_id
+    moltin_token = context.bot_data['moltin_token']
+
+    cart_items = get_items_in_cart(moltin_token, chat_id)
+    cart_price = get_cart_price(moltin_token, chat_id)
+
+    answer = ''
+
+    for item in cart_items['data']:
+        answer += (
+            f'Название {item["name"]}\n'
+            f'Описание: {item["description"]}\n'
+            f'Цена: {item["meta"]["display_price"]["with_tax"]["unit"]["formatted"]}/кг.\n'
+            f'В корзине: {item["quantity"]} кг. на сумму {item["meta"]["display_price"]["with_tax"]["value"]["formatted"]}\n\n'
+        )
+
+    answer += f"Всего товаров на {cart_price['data']['meta']['display_price']['with_tax']['formatted']}\n\n\n"
+
+    keyboard = [
+        [InlineKeyboardButton("К продуктам", callback_data='main_menu')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    context.bot.send_message(
+        text=answer,
+        chat_id=chat_id,
+        reply_markup=reply_markup,
+    )
+    db.set(f'{query.message.chat_id}', 'cart')
+
+
 def help(update, context):
     update.message.reply_text("Use /start to test this bot.")
 
@@ -148,7 +192,8 @@ def error(update, context):
 def start_tg_bot(tg_token, moltin_client_id, moltin_client_secret):
     updater = Updater(tg_token)
     dispatcher = updater.dispatcher
-    dispatcher.bot_data['moltin_token'] = get_moltin_token(moltin_client_id, moltin_client_secret)
+    dispatcher.bot_data['moltin_token'] = get_moltin_token(moltin_client_id,
+                                                           moltin_client_secret)
 
     # dispatcher.add_handler(CommandHandler('start', start))
     # dispatcher.add_handler(CallbackQueryHandler(callback_menu))
@@ -160,6 +205,7 @@ def start_tg_bot(tg_token, moltin_client_id, moltin_client_secret):
         states={
             'main_menu': [
                 CallbackQueryHandler(main_menu, pattern='main_menu'),
+                CallbackQueryHandler(cart, pattern='cart'),
                 CallbackQueryHandler(about_product)
             ],
         },
