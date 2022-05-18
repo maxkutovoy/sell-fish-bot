@@ -98,8 +98,18 @@ def get_cart_price(moltin_token, cart_id='479351324'):
 
     response = requests.get(f'https://api.moltin.com/v2/carts/{cart_id}', headers=headers)
     response.raise_for_status()
-    print(response.json())
     return response.json()
+
+
+def remove_item_from_cart(moltin_token, cart_id, product_id):
+    headers = {
+        'Authorization': f'Bearer {moltin_token}',
+    }
+
+    response = requests.delete(
+        f'https://api.moltin.com/v2/carts/{cart_id}/items/{product_id}',
+        headers=headers
+    )
 
 
 def clean_up_the_cart(moltin_token, cart_id):

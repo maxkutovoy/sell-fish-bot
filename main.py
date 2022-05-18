@@ -5,19 +5,37 @@ from pprint import pprint
 
 import redis
 from environs import Env
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, \
-    ReplyKeyboardRemove
-from telegram.ext import Filters, Updater, CommandHandler, \
-    CallbackQueryHandler, ConversationHandler
+from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
+                      ReplyKeyboardRemove)
+from telegram.ext import (Filters, Updater, CommandHandler, MessageHandler,
+                          ConversationHandler, MessageFilter,
+                          CallbackQueryHandler)
 
 from moltin import (get_all_products, get_product_info, get_moltin_token,
                     get_file, add_product_to_cart,
-                    get_items_in_cart, get_cart_price)
+                    get_items_in_cart, get_cart_price, remove_item_from_cart)
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.WARNING)
 logger = logging.getLogger(__name__)
+
+
+def generate_cart_message(items):
+    answer = ''
+    keyboard = []
+
+    for item in items:
+        answer += (
+            f'Название {item["name"]}\n'
+            f'Описание: {item["description"]}\n'
+            f'Цена: {item["meta"]["display_price"]["with_tax"]["unit"]["formatted"]}/кг.\n'
+            f'В корзине: {item["quantity"]} кг. на сумму {item["meta"]["display_price"]["with_tax"]["value"]["formatted"]}\n\n'
+        )
+        keyboard.append([InlineKeyboardButton(f'Удалить {item["name"]}',
+                                              callback_data=f'remove:{item["id"]}')])
+
+    return answer, keyboard
 
 
 def start(update, context):
@@ -151,21 +169,11 @@ def cart(update, context):
     cart_items = get_items_in_cart(moltin_token, chat_id)
     cart_price = get_cart_price(moltin_token, chat_id)
 
-    answer = ''
-
-    for item in cart_items['data']:
-        answer += (
-            f'Название {item["name"]}\n'
-            f'Описание: {item["description"]}\n'
-            f'Цена: {item["meta"]["display_price"]["with_tax"]["unit"]["formatted"]}/кг.\n'
-            f'В корзине: {item["quantity"]} кг. на сумму {item["meta"]["display_price"]["with_tax"]["value"]["formatted"]}\n\n'
-        )
-
+    answer, keyboard = generate_cart_message(cart_items['data'])
     answer += f"Всего товаров на {cart_price['data']['meta']['display_price']['with_tax']['formatted']}\n\n\n"
-
-    keyboard = [
+    keyboard.append(
         [InlineKeyboardButton("К продуктам", callback_data='main_menu')]
-    ]
+    )
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     context.bot.send_message(
@@ -173,7 +181,35 @@ def cart(update, context):
         chat_id=chat_id,
         reply_markup=reply_markup,
     )
-    db.set(f'{query.message.chat_id}', 'cart')
+
+
+def remove_product_from_cart(update, context):
+    query = update.callback_query
+    product_id = query.data.split(':')[1]
+
+    moltin_token = context.bot_data['moltin_token']
+    chat_id = query.message.chat_id
+    message_id = query.message.message_id
+
+    remove_item_from_cart(moltin_token, chat_id, product_id)
+
+    cart_items = get_items_in_cart(moltin_token, chat_id)
+    cart_price = get_cart_price(moltin_token, chat_id)
+
+    answer, keyboard = generate_cart_message(cart_items['data'])
+    answer += f"Всего товаров на {cart_price['data']['meta']['display_price']['with_tax']['formatted']}\n\n\n"
+    keyboard.append(
+        [InlineKeyboardButton("К продуктам", callback_data='main_menu')]
+    )
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    answer += f"Всего товаров на {cart_price['data']['meta']['display_price']['with_tax']['formatted']}\n\n\n"
+
+    context.bot.send_message(
+        text=answer,
+        chat_id=chat_id,
+        reply_markup=reply_markup,
+    )
+    return 'main_menu'
 
 
 def help(update, context):
@@ -206,7 +242,9 @@ def start_tg_bot(tg_token, moltin_client_id, moltin_client_secret):
             'main_menu': [
                 CallbackQueryHandler(main_menu, pattern='main_menu'),
                 CallbackQueryHandler(cart, pattern='cart'),
-                CallbackQueryHandler(about_product)
+
+                CallbackQueryHandler(remove_product_from_cart, pattern='remove*'),
+                CallbackQueryHandler(about_product),
             ],
         },
         fallbacks=[
