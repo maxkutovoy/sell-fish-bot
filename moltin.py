@@ -116,9 +116,28 @@ def clean_up_the_cart(moltin_token, cart_id):
     headers = {
         'Authorization': f'Bearer {moltin_token}',
     }
+    requests.delete(f'https://api.moltin.com/v2/carts/{cart_id}', headers=headers)
 
-    response = requests.delete(f'https://api.moltin.com/v2/carts/{cart_id}', headers=headers)
-    print(response.status_code)
+
+def create_customer(moltin_token, name, email):
+    headers = {
+        'Authorization': f'Bearer {moltin_token}',
+    }
+
+    json_data = {
+        'data': {
+            'type': 'customer',
+            'name': name,
+            'email': email,
+        },
+    }
+    response = requests.post(
+        'https://api.moltin.com/v2/customers',
+        headers=headers,
+        json=json_data
+    )
+
+    return response.json()['data']['id']
 
 
 def get_file(moltin_token, file_id, media_dir):
