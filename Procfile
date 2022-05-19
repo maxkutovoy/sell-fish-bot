@@ -1,1 +1,1 @@
-bot-tg: python tg_bot.py
+tg-bot: python main.py
