@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 import redis
+import requests
 from environs import Env
 from validate_email import validate_email
 from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
@@ -304,5 +305,7 @@ if __name__ == '__main__':
         password=redis_pass,
         db=0
     )
-
-    start_tg_bot(tg_token, moltin_client_id, moltin_client_secret)
+    try:
+        start_tg_bot(tg_token, moltin_client_id, moltin_client_secret)
+    except requests.exceptions.HTTPError as error:
+        logger.warning('Проблема с Телеграм-ботом')
