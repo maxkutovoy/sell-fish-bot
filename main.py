@@ -9,11 +9,9 @@ import requests
 import telegram
 from environs import Env
 from validate_email import validate_email
-from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
-                      ReplyKeyboardRemove)
+from telegram import (InlineKeyboardButton, InlineKeyboardMarkup)
 from telegram.ext import (Filters, Updater, CommandHandler, MessageHandler,
-                          ConversationHandler, MessageFilter,
-                          CallbackQueryHandler)
+                          ConversationHandler, CallbackQueryHandler)
 
 from moltin import (get_all_products, get_product_info, get_moltin_token,
                     get_file, add_product_to_cart,
@@ -65,7 +63,7 @@ def start(update, context):
     return 'main_menu'
 
 
-def main_menu(update, context):
+def run_main_menu_handler(update, context):
     moltin_token = get_moltin_token(
         context.bot_data['moltin_client_id'],
         context.bot_data['moltin_client_secret']
@@ -90,7 +88,7 @@ def main_menu(update, context):
     return 'main_menu'
 
 
-def about_product(update, context):
+def run_about_product_handler(update, context):
     moltin_token = get_moltin_token(
         context.bot_data['moltin_client_id'],
         context.bot_data['moltin_client_secret']
@@ -160,7 +158,7 @@ def about_product(update, context):
     return 'main_menu'
 
 
-def cart(update, context):
+def get_cart(update, context):
     moltin_token = get_moltin_token(
         context.bot_data['moltin_client_id'],
         context.bot_data['moltin_client_secret']
@@ -271,7 +269,7 @@ def cancel(update, context):
     return ConversationHandler.END
 
 
-def error(update, context):
+def log_error(update, context):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, error)
 
@@ -287,12 +285,12 @@ def start_tg_bot(tg_token, moltin_client_id, moltin_client_secret):
         entry_points=[CommandHandler('start', start)],
         states={
             'main_menu': [
-                CallbackQueryHandler(main_menu, pattern='main_menu'),
-                CallbackQueryHandler(cart, pattern='cart'),
+                CallbackQueryHandler(run_main_menu_handler, pattern='main_menu'),
+                CallbackQueryHandler(get_cart, pattern='cart'),
                 CallbackQueryHandler(remove_product_from_cart,
                                      pattern='remove*'),
                 CallbackQueryHandler(waiting_email, pattern='payment'),
-                CallbackQueryHandler(about_product),
+                CallbackQueryHandler(run_about_product_handler),
                 MessageHandler(Filters.text, waiting_email)
             ],
         },
