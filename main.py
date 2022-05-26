@@ -43,7 +43,10 @@ def generate_cart_message(items):
 
 
 def start(update, context):
-    moltin_token = context.bot_data['moltin_token']
+    moltin_token = get_moltin_token(
+        context.bot_data['moltin_client_id'],
+        context.bot_data['moltin_client_secret']
+    )
     all_products = get_all_products(moltin_token)
 
     keyboard = [
@@ -59,7 +62,10 @@ def start(update, context):
 
 
 def main_menu(update, context):
-    moltin_token = context.bot_data['moltin_token']
+    moltin_token = get_moltin_token(
+        context.bot_data['moltin_client_id'],
+        context.bot_data['moltin_client_secret']
+    )
     query = update.callback_query
 
     all_products = get_all_products(moltin_token)
@@ -81,9 +87,12 @@ def main_menu(update, context):
 
 
 def about_product(update, context):
+    moltin_token = get_moltin_token(
+        context.bot_data['moltin_client_id'],
+        context.bot_data['moltin_client_secret']
+    )
     query = update.callback_query
     query_data = query.data
-    moltin_token = context.bot_data['moltin_token']
     context.bot.answer_callback_query(update.callback_query.id)
 
     keyboard = [
@@ -145,9 +154,12 @@ def about_product(update, context):
 
 
 def cart(update, context):
+    moltin_token = get_moltin_token(
+        context.bot_data['moltin_client_id'],
+        context.bot_data['moltin_client_secret']
+    )
     query = update.callback_query
     chat_id = query.message.chat_id
-    moltin_token = context.bot_data['moltin_token']
 
     cart_items = get_items_in_cart(moltin_token, chat_id)
     cart_price = get_cart_price(moltin_token, chat_id)
@@ -170,10 +182,13 @@ def cart(update, context):
 
 
 def remove_product_from_cart(update, context):
+    moltin_token = get_moltin_token(
+        context.bot_data['moltin_client_id'],
+        context.bot_data['moltin_client_secret']
+    )
+
     query = update.callback_query
     product_id = query.data.split(':')[1]
-
-    moltin_token = context.bot_data['moltin_token']
     chat_id = query.message.chat_id
 
     remove_item_from_cart(moltin_token, chat_id, product_id)
@@ -213,12 +228,15 @@ def waiting_email(update, context):
         return 'main_menu'
 
     elif update.message:
+        moltin_token = get_moltin_token(
+            context.bot_data['moltin_client_id'],
+            context.bot_data['moltin_client_secret']
+        )
         keyboard = [
             [InlineKeyboardButton("К продуктам", callback_data='main_menu')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        moltin_token = context.bot_data['moltin_token']
         chat_id = update.message.chat_id
         name = update.message.chat.username or update.message.chat.first_name
         email = update.message.text
@@ -254,8 +272,9 @@ def error(update, context):
 def start_tg_bot(tg_token, moltin_client_id, moltin_client_secret):
     updater = Updater(tg_token)
     dispatcher = updater.dispatcher
-    dispatcher.bot_data['moltin_token'] = get_moltin_token(moltin_client_id,
-                                                           moltin_client_secret)
+
+    dispatcher.bot_data['moltin_client_id'] = moltin_client_id
+    dispatcher.bot_data['moltin_client_secret'] = moltin_client_secret
 
     conversation = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
