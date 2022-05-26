@@ -54,7 +54,6 @@ def start(update, context):
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     update.message.reply_text('Выбери продукт:', reply_markup=reply_markup)
-    db.set(f'{update.message.chat_id}', 'main_menu')
 
     return 'main_menu'
 
@@ -77,7 +76,6 @@ def main_menu(update, context):
         chat_id=query.message.chat_id,
         reply_markup=reply_markup
     )
-    db.set(f'{query.message.chat_id}', 'main_menu')
 
     return 'main_menu'
 
@@ -142,7 +140,6 @@ def about_product(update, context):
         chat_id=query.message.chat_id,
         message_id=query.message.message_id
     )
-    db.set(f'{query.message.chat_id}', 'about_product')
 
     return 'main_menu'
 
@@ -170,8 +167,6 @@ def cart(update, context):
         chat_id=chat_id,
         reply_markup=reply_markup,
     )
-
-    db.set(f'{update.message.chat_id}', 'cart')
 
 
 def remove_product_from_cart(update, context):
@@ -240,7 +235,6 @@ def waiting_email(update, context):
         context.user_data['moltin_customer_id'] = \
         create_customer_response['data']['id']
 
-        db.set(f'{update.message.chat_id}', 'send_order')
         clean_up_the_cart(moltin_token, cart_id=chat_id)
 
 
