@@ -5,6 +5,7 @@ from pathlib import Path
 
 import redis
 import requests
+import telegram
 from environs import Env
 from validate_email import validate_email
 from telegram import (InlineKeyboardButton, InlineKeyboardMarkup,
@@ -18,10 +19,8 @@ from moltin import (get_all_products, get_product_info, get_moltin_token,
                     get_items_in_cart, get_cart_price, remove_item_from_cart,
                     clean_up_the_cart, create_customer)
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.WARNING)
-logger = logging.getLogger(__name__)
+import log_handler
+logger = logging.getLogger('TG logger')
 
 
 def generate_cart_message(items):
@@ -292,6 +291,7 @@ if __name__ == '__main__':
     env.read_env()
 
     tg_token = env.str('TG_TOKEN')
+    tg_chat_id = env.str('TG_CHAT_ID')
     moltin_client_id = env.str('MOLTIN_CLIENT_ID')
     moltin_client_secret = env.str('MOLTIN_CLIENT_SECRET')
 
@@ -305,6 +305,11 @@ if __name__ == '__main__':
         password=redis_pass,
         db=0
     )
+
+    tg_bot = telegram.Bot(token=tg_token)
+    logger.setLevel(logging.WARNING)
+    logger.addHandler(log_handler.TelegramLogsHandler(tg_bot, tg_chat_id))
+
     try:
         start_tg_bot(tg_token, moltin_client_id, moltin_client_secret)
     except requests.exceptions.HTTPError as error:
