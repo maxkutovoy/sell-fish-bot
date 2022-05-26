@@ -2,6 +2,7 @@
 
 import logging
 from pathlib import Path
+from textwrap import dedent
 
 import redis
 import requests
@@ -28,18 +29,21 @@ def generate_cart_message(items):
     keyboard = []
 
     for item in items:
-        answer += (
-            f'Название {item["name"]}\n'
-            f'Описание: {item["description"]}\n'
-            f'Цена: {item["meta"]["display_price"]["with_tax"]["unit"]["formatted"]}/кг.\n'
-            f'В корзине: {item["quantity"]} кг. на сумму {item["meta"]["display_price"]["with_tax"]["value"]["formatted"]}\n\n'
-        )
+        answer += f'''\
+            Название {item["name"]}
+            Описание: {item["description"]}
+            Цена: {item["meta"]["display_price"]["with_tax"]["unit"]["formatted"]}/кг.
+            
+            В корзине: {item["quantity"]} кг. на сумму {item["meta"]["display_price"]["with_tax"]["value"]["formatted"]}
+            
+        '''
+
         keyboard.append([InlineKeyboardButton(
             f'Удалить {item["name"]}',
             callback_data=f'remove:{item["id"]}'
         )])
 
-    return answer, keyboard
+    return dedent(answer), keyboard
 
 
 def start(update, context):
@@ -126,10 +130,13 @@ def about_product(update, context):
     context.user_data['current_product_id'] = query_data
     context.user_data['current_product_name'] = product_info['data']['name']
 
-    answer = (
-        f"Название: {product_info['data']['name']}\n\n"
-        f"Описание: {product_info['data']['description']}\n\n"
-        f"Цена: {product_info['data']['meta']['display_price']['with_tax']['formatted']}"
+    answer = dedent(f"""\
+        Название: {product_info['data']['name']}
+        
+        Описание: {product_info['data']['description']}
+        
+        Цена: {product_info['data']['meta']['display_price']['with_tax']['formatted']}
+        """
     )
     image_id = product_info['data']['relationships']['main_image']['data'][
         'id']
