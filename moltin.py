@@ -2,7 +2,7 @@
 import os
 
 import requests
-
+from pprint import pprint
 
 def get_moltin_token(moltin_client_id, moltin_client_secret):
     data = {
@@ -101,6 +101,9 @@ def remove_item_from_cart(moltin_token, cart_id, product_id):
         headers=headers
     )
     response.raise_for_status()
+    pprint(response.json())
+
+    return response.json()
 
 
 def clean_up_the_cart(moltin_token, cart_id):
@@ -132,7 +135,26 @@ def create_customer(moltin_token, name, email):
         json=json_data
     )
     response.raise_for_status()
-    return response.json()['data']['id']
+    return response.json()
+
+
+def get_customer(moltin_token, name, email):
+    headers = {
+        'Authorization': f'Bearer {moltin_token}',
+    }
+    json_data = {
+        'data': {
+            'name': name,
+            'email': email,
+        },
+    }
+    response = requests.post(
+        'https://api.moltin.com/v2/customers',
+        headers=headers,
+        json=json_data
+    )
+    response.raise_for_status()
+    return response.json()
 
 
 def get_file(moltin_token, file_id, media_dir):
