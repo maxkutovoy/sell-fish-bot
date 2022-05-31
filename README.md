@@ -23,8 +23,6 @@ pip install -r requirements.txt
 
 ## Как использовать:
 
-- Создать базу данных [Redis](https://redislabs.com/). Получить адрес базы данных,
-порт и пароль.
 - Зарегистрировать Телеграм-бота. Напишите [отцу ботов](https://telegram.me/BotFather)
 и получите API ключ.
 - Зарегистрируйтесь на [elasticpath](https://www.elasticpath.com/). 
@@ -37,10 +35,6 @@ pip install -r requirements.txt
 Необходимые настройки:
 
 - `TG_TOKEN` - токен телеграм-бота.
-- `REDIS_DB_NAME` - адрес базы данных Redis вида `redis-12312.f18.us-east-4-9.wc1.cloud.redislabs.com`.
-- `REDIS_PORT` - порт базы данных Redis.
-Порт часто пишется прямо в адресе, через двоеточие: `redis-12312.f18.us-east-4-9.wc1.cloud.redislabs.com:16635`.
-- `REDIS_PASSWORD` - пароль от базы данных Redis.
 - `MOLTIN_CLIENT_ID` - Client ID можно получить в разделе `Home` после регистрации
 [elasticpath](https://www.elasticpath.com/).
 - `MOLTIN_CLIENT_SECRET` - Client secret можно получить в разделе `Home` после регистрации

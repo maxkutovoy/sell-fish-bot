@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 from textwrap import dedent
 
-import redis
 import requests
 import telegram
 from environs import Env
@@ -304,17 +303,6 @@ if __name__ == '__main__':
     tg_chat_id = env.str('TG_CHAT_ID')
     moltin_client_id = env.str('MOLTIN_CLIENT_ID')
     moltin_client_secret = env.str('MOLTIN_CLIENT_SECRET')
-
-    redis_host = env.str('REDIS_DB_NAME')
-    redis_port = env.int('REDIS_PORT')
-    redis_pass = env.str('REDIS_PASSWORD')
-
-    db = redis.Redis(
-        host=redis_host,
-        port=redis_port,
-        password=redis_pass,
-        db=0
-    )
 
     tg_bot = telegram.Bot(token=tg_token)
     logger.setLevel(logging.WARNING)
