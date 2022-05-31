@@ -2,7 +2,6 @@
 import os
 
 import requests
-from pprint import pprint
 
 def get_moltin_token(moltin_client_id, moltin_client_secret):
     data = {
@@ -101,7 +100,6 @@ def remove_item_from_cart(moltin_token, cart_id, product_id):
         headers=headers
     )
     response.raise_for_status()
-    pprint(response.json())
 
     return response.json()
 
