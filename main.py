@@ -3,6 +3,7 @@
 import logging
 from pathlib import Path
 from textwrap import dedent
+from datetime import datetime, timedelta
 
 import requests
 import telegram
@@ -47,10 +48,17 @@ def generate_cart_message(items):
 def start(update, context):
     chat_id = update.effective_chat.id
 
-    moltin_token = get_moltin_token(
-        context.bot_data['moltin_client_id'],
-        context.bot_data['moltin_client_secret']
-    )
+    last_update = context.bot_data['last_update']
+    if datetime.now() - last_update > timedelta(minutes=30):
+        moltin_token = get_moltin_token(
+            context.bot_data['moltin_client_id'],
+            context.bot_data['moltin_client_secret']
+        )
+        context.bot_data['moltin_token'] = moltin_token
+        context.bot_data['last_update'] = datetime.now()
+    else:
+        moltin_token = context.bot_data['moltin_token']
+
     all_products = get_all_products(moltin_token)
 
     keyboard = [
@@ -73,13 +81,19 @@ def show_product_info(update, context):
     query = update.callback_query
     query_data = query.data
 
+    last_update = context.bot_data['last_update']
+    if datetime.now() - last_update > timedelta(minutes=30):
+        moltin_token = get_moltin_token(
+            context.bot_data['moltin_client_id'],
+            context.bot_data['moltin_client_secret']
+        )
+        context.bot_data['moltin_token'] = moltin_token
+        context.bot_data['last_update'] = datetime.now()
+    else:
+        moltin_token = context.bot_data['moltin_token']
+
     if update.callback_query.data.isdigit():
         query_data = context.user_data['current_product_id']
-
-    moltin_token = get_moltin_token(
-        context.bot_data['moltin_client_id'],
-        context.bot_data['moltin_client_secret']
-    )
 
     context.bot.answer_callback_query(update.callback_query.id)
 
@@ -130,10 +144,17 @@ def show_product_info(update, context):
 
 
 def add_to_cart(update, context):
-    moltin_token = get_moltin_token(
-        context.bot_data['moltin_client_id'],
-        context.bot_data['moltin_client_secret']
-    )
+    last_update = context.bot_data['last_update']
+    if datetime.now() - last_update > timedelta(minutes=30):
+        moltin_token = get_moltin_token(
+            context.bot_data['moltin_client_id'],
+            context.bot_data['moltin_client_secret']
+        )
+        context.bot_data['moltin_token'] = moltin_token
+        context.bot_data['last_update'] = datetime.now()
+    else:
+        moltin_token = context.bot_data['moltin_token']
+
     query = update.callback_query
     query_data = query.data
 
@@ -153,10 +174,18 @@ def add_to_cart(update, context):
 
 
 def get_cart(update, context):
-    moltin_token = get_moltin_token(
-        context.bot_data['moltin_client_id'],
-        context.bot_data['moltin_client_secret']
-    )
+
+    last_update = context.bot_data['last_update']
+    if datetime.now() - last_update > timedelta(minutes=30):
+        moltin_token = get_moltin_token(
+            context.bot_data['moltin_client_id'],
+            context.bot_data['moltin_client_secret']
+        )
+        context.bot_data['moltin_token'] = moltin_token
+        context.bot_data['last_update'] = datetime.now()
+    else:
+        moltin_token = context.bot_data['moltin_token']
+
     query = update.callback_query
     chat_id = query.message.chat_id
 
@@ -183,10 +212,16 @@ def get_cart(update, context):
 
 
 def remove_product_from_cart(update, context):
-    moltin_token = get_moltin_token(
-        context.bot_data['moltin_client_id'],
-        context.bot_data['moltin_client_secret']
-    )
+    last_update = context.bot_data['last_update']
+    if datetime.now() - last_update > timedelta(minutes=30):
+        moltin_token = get_moltin_token(
+            context.bot_data['moltin_client_id'],
+            context.bot_data['moltin_client_secret']
+        )
+        context.bot_data['moltin_token'] = moltin_token
+        context.bot_data['last_update'] = datetime.now()
+    else:
+        moltin_token = context.bot_data['moltin_token']
 
     query = update.callback_query
     product_id = query.data.split(':')[1]
@@ -210,14 +245,16 @@ def waiting_email(update, context):
         return 'cart_menu'
 
     elif update.message:
-        moltin_token = get_moltin_token(
-            context.bot_data['moltin_client_id'],
-            context.bot_data['moltin_client_secret']
-        )
-        keyboard = [
-            [InlineKeyboardButton("К продуктам", callback_data='main_menu')]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        last_update = context.bot_data['last_update']
+        if datetime.now() - last_update > timedelta(minutes=30):
+            moltin_token = get_moltin_token(
+                context.bot_data['moltin_client_id'],
+                context.bot_data['moltin_client_secret']
+            )
+            context.bot_data['moltin_token'] = moltin_token
+            context.bot_data['last_update'] = datetime.now()
+        else:
+            moltin_token = context.bot_data['moltin_token']
 
         chat_id = update.message.chat_id
         name = update.message.chat.username or update.message.chat.first_name
@@ -262,6 +299,10 @@ def start_tg_bot(tg_token, moltin_client_id, moltin_client_secret):
 
     dispatcher.bot_data['moltin_client_id'] = moltin_client_id
     dispatcher.bot_data['moltin_client_secret'] = moltin_client_secret
+
+    dispatcher.bot_data['moltin_token'] = get_moltin_token(
+        moltin_client_id, moltin_client_secret)
+    dispatcher.bot_data['last_update'] = datetime.now()
 
     conversation = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
