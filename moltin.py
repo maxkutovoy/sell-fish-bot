@@ -16,7 +16,7 @@ def get_moltin_token(moltin_client_id, moltin_client_secret):
         data=data
     )
     response.raise_for_status()
-    return response.json()['access_token']
+    return response.json()
 
 
 def get_all_products(moltin_token):

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 import logging
+import time
 from pathlib import Path
 from textwrap import dedent
-from datetime import datetime, timedelta
 
 import requests
 import telegram
@@ -48,18 +48,15 @@ def generate_cart_message(items):
 def start(update, context):
     chat_id = update.effective_chat.id
 
-    last_update = context.bot_data['last_update']
-    if datetime.now() - last_update > timedelta(minutes=30):
-        moltin_token = get_moltin_token(
+    if context.bot_data['moltin_token_expires'] - time.time() < 600:
+        moltin_token_data = get_moltin_token(
             context.bot_data['moltin_client_id'],
-            context.bot_data['moltin_client_secret']
+            context.bot_data['moltin_client_secret'],
         )
-        context.bot_data['moltin_token'] = moltin_token
-        context.bot_data['last_update'] = datetime.now()
-    else:
-        moltin_token = context.bot_data['moltin_token']
+        context.bot_data['moltin_token'] = moltin_token_data['access_token']
+        context.bot_data['moltin_token_expires'] = moltin_token_data['expires']
 
-    all_products = get_all_products(moltin_token)
+    all_products = get_all_products(context.bot_data['moltin_token'])
 
     keyboard = [
         [InlineKeyboardButton(product['name'], callback_data=product['id'])]
@@ -81,16 +78,13 @@ def show_product_info(update, context):
     query = update.callback_query
     query_data = query.data
 
-    last_update = context.bot_data['last_update']
-    if datetime.now() - last_update > timedelta(minutes=30):
-        moltin_token = get_moltin_token(
+    if context.bot_data['moltin_token_expires'] - time.time() < 600:
+        moltin_token_data = get_moltin_token(
             context.bot_data['moltin_client_id'],
-            context.bot_data['moltin_client_secret']
+            context.bot_data['moltin_client_secret'],
         )
-        context.bot_data['moltin_token'] = moltin_token
-        context.bot_data['last_update'] = datetime.now()
-    else:
-        moltin_token = context.bot_data['moltin_token']
+        context.bot_data['moltin_token'] = moltin_token_data['access_token']
+        context.bot_data['moltin_token_expires'] = moltin_token_data['expires']
 
     if update.callback_query.data.isdigit():
         query_data = context.user_data['current_product_id']
@@ -108,7 +102,8 @@ def show_product_info(update, context):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    product_info = get_product_info(moltin_token, query_data)
+    product_info = get_product_info(context.bot_data['moltin_token'],
+                                    query_data)
     context.user_data['current_product_id'] = query_data
     context.user_data['current_product_name'] = product_info['data']['name']
 
@@ -127,7 +122,7 @@ def show_product_info(update, context):
     media_dir = 'media'
     Path(media_dir).mkdir(parents=True, exist_ok=True)
 
-    filename = get_file(moltin_token, image_id, media_dir)
+    filename = get_file(context.bot_data['moltin_token'], image_id, media_dir)
 
     context.bot.send_photo(
         chat_id=query.message.chat_id,
@@ -144,22 +139,19 @@ def show_product_info(update, context):
 
 
 def add_to_cart(update, context):
-    last_update = context.bot_data['last_update']
-    if datetime.now() - last_update > timedelta(minutes=30):
-        moltin_token = get_moltin_token(
+    if context.bot_data['moltin_token_expires'] - time.time() < 600:
+        moltin_token_data = get_moltin_token(
             context.bot_data['moltin_client_id'],
-            context.bot_data['moltin_client_secret']
+            context.bot_data['moltin_client_secret'],
         )
-        context.bot_data['moltin_token'] = moltin_token
-        context.bot_data['last_update'] = datetime.now()
-    else:
-        moltin_token = context.bot_data['moltin_token']
+        context.bot_data['moltin_token'] = moltin_token_data['access_token']
+        context.bot_data['moltin_token_expires'] = moltin_token_data['expires']
 
     query = update.callback_query
     query_data = query.data
 
     add_product_to_cart(
-        moltin_token=moltin_token,
+        moltin_token=context.bot_data['moltin_token'],
         cart_id=query.message.chat_id,
         product_id=context.user_data['current_product_id'],
         quantity=int(query_data)
@@ -174,23 +166,19 @@ def add_to_cart(update, context):
 
 
 def get_cart(update, context):
-
-    last_update = context.bot_data['last_update']
-    if datetime.now() - last_update > timedelta(minutes=30):
-        moltin_token = get_moltin_token(
+    if context.bot_data['moltin_token_expires'] - time.time() < 600:
+        moltin_token_data = get_moltin_token(
             context.bot_data['moltin_client_id'],
-            context.bot_data['moltin_client_secret']
+            context.bot_data['moltin_client_secret'],
         )
-        context.bot_data['moltin_token'] = moltin_token
-        context.bot_data['last_update'] = datetime.now()
-    else:
-        moltin_token = context.bot_data['moltin_token']
+        context.bot_data['moltin_token'] = moltin_token_data['access_token']
+        context.bot_data['moltin_token_expires'] = moltin_token_data['expires']
 
     query = update.callback_query
     chat_id = query.message.chat_id
 
-    cart_items = get_items_in_cart(moltin_token, chat_id)
-    cart_price = get_cart_price(moltin_token, chat_id)
+    cart_items = get_items_in_cart(context.bot_data['moltin_token'], chat_id)
+    cart_price = get_cart_price(context.bot_data['moltin_token'], chat_id)
 
     answer, keyboard = generate_cart_message(cart_items['data'])
     answer += f"Всего товаров на {cart_price['data']['meta']['display_price']['with_tax']['formatted']}\n\n\n"
@@ -212,22 +200,20 @@ def get_cart(update, context):
 
 
 def remove_product_from_cart(update, context):
-    last_update = context.bot_data['last_update']
-    if datetime.now() - last_update > timedelta(minutes=30):
-        moltin_token = get_moltin_token(
+    if context.bot_data['moltin_token_expires'] - time.time() < 600:
+        moltin_token_data = get_moltin_token(
             context.bot_data['moltin_client_id'],
-            context.bot_data['moltin_client_secret']
+            context.bot_data['moltin_client_secret'],
         )
-        context.bot_data['moltin_token'] = moltin_token
-        context.bot_data['last_update'] = datetime.now()
-    else:
-        moltin_token = context.bot_data['moltin_token']
+        context.bot_data['moltin_token'] = moltin_token_data['access_token']
+        context.bot_data['moltin_token_expires'] = moltin_token_data['expires']
 
     query = update.callback_query
     product_id = query.data.split(':')[1]
     chat_id = query.message.chat_id
 
-    remove_item_from_cart(moltin_token, chat_id, product_id)
+    remove_item_from_cart(context.bot_data['moltin_token'], chat_id,
+                          product_id)
 
     return get_cart(update, context)
 
@@ -245,16 +231,14 @@ def waiting_email(update, context):
         return 'cart_menu'
 
     elif update.message:
-        last_update = context.bot_data['last_update']
-        if datetime.now() - last_update > timedelta(minutes=30):
-            moltin_token = get_moltin_token(
+        if context.bot_data['moltin_token_expires'] - time.time() < 600:
+            moltin_token_data = get_moltin_token(
                 context.bot_data['moltin_client_id'],
-                context.bot_data['moltin_client_secret']
+                context.bot_data['moltin_client_secret'],
             )
-            context.bot_data['moltin_token'] = moltin_token
-            context.bot_data['last_update'] = datetime.now()
-        else:
-            moltin_token = context.bot_data['moltin_token']
+            context.bot_data['moltin_token'] = moltin_token_data[
+                'access_token']
+            context.bot_data['moltin_token_expires'] = moltin_token_data['expires']
 
         chat_id = update.message.chat_id
         name = update.message.chat.username or update.message.chat.first_name
@@ -268,14 +252,15 @@ def waiting_email(update, context):
         try:
             context.user_data['moltin_customer_id']
         except KeyError:
-            create_customer_response = create_customer(moltin_token, name,
-                                                       email)
-            context.user_data['moltin_customer_id'] = create_customer_response['data']['id']
+            created_customer_response = create_customer(
+                context.bot_data['moltin_token'], name, email)
+            context.user_data['moltin_customer_id'] = \
+            created_customer_response['data']['id']
 
         answer = 'Заказ оформлен, с вами свяжется наш менеджер'
         update.message.reply_text(answer)
 
-        clean_up_the_cart(moltin_token, cart_id=chat_id)
+        clean_up_the_cart(context.bot_data['moltin_token'], cart_id=chat_id)
 
         return start(update, context)
 
@@ -300,9 +285,11 @@ def start_tg_bot(tg_token, moltin_client_id, moltin_client_secret):
     dispatcher.bot_data['moltin_client_id'] = moltin_client_id
     dispatcher.bot_data['moltin_client_secret'] = moltin_client_secret
 
-    dispatcher.bot_data['moltin_token'] = get_moltin_token(
+    moltin_token_data = get_moltin_token(
         moltin_client_id, moltin_client_secret)
-    dispatcher.bot_data['last_update'] = datetime.now()
+
+    dispatcher.bot_data['moltin_token'] = moltin_token_data['access_token']
+    dispatcher.bot_data['moltin_token_expires'] = moltin_token_data['expires']
 
     conversation = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
